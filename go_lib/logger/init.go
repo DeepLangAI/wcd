@@ -1,6 +1,11 @@
 package logger
 
 import (
+	"io"
+	"os"
+	"path/filepath"
+	"time"
+
 	conflib "github.com/DeepLangAI/go_lib/conf"
 	constslib "github.com/DeepLangAI/go_lib/consts"
 	"github.com/DeepLangAI/go_lib/utillib"
@@ -9,10 +14,6 @@ import (
 	rotatelogs "github.com/lestrrat/go-file-rotatelogs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"io"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 func Init(logCfg conflib.Logger) {
@@ -65,14 +66,21 @@ func Init(logCfg conflib.Logger) {
 	hlog.SetLogger(l)
 }
 
+func EnsureDirForFile(filePath string) error {
+	dir := filepath.Dir(filePath)
+	return os.MkdirAll(dir, 0755)
+}
+
 // 日志切分
 func getWriter(filename string) io.Writer {
-	absPath, err := filepath.Abs(filename)
+	filePath := filename + "_%Y%m%d.log"
+	absPath, err := filepath.Abs(filePath)
 	if err != nil {
 		panic(absPath)
 	}
+	EnsureDirForFile(absPath)
 	hook, err := rotatelogs.New(
-		absPath+"_%Y%m%d.log",
+		absPath,
 		rotatelogs.WithLinkName(filename),
 		rotatelogs.WithMaxAge(time.Hour*24),
 		rotatelogs.WithRotationTime(time.Hour*24),
