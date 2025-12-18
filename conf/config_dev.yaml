@@ -1,0 +1,27 @@
+# 服务器配置
+server:
+  port: ":8080"
+  name: "github.com/DeepLangAI/wcd"
+
+# 日志配置
+logger:
+  log_path: './logs/system'
+  log_level: "debug"
+
+# 数据库配置
+mongo:
+  addr: "mongodb://mongodb:27017/parse_db"
+  db_name: "parse_db"
+
+# 外部api配置
+api_domain:
+  ai_api: ""
+  crawler_api: "server-crawler:18100"
+
+# 解析配置
+parse:
+  label:
+    use_mock: true
+  crawl:
+    html_cache_hours: 144
+

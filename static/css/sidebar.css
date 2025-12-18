@@ -1,0 +1,144 @@
+/* sidebar.css */
+
+.sidebar {
+    width: 230px;
+    background-color: #ffffff;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08); /* 用阴影替代边框更现代 */
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* 更流畅的贝塞尔曲线 */
+    min-height: 100vh;
+    position: relative;
+    z-index: 100;
+}
+
+.sidebar.collapsed {
+    width: 88px; /* 更紧凑的收起状态 */
+}
+
+.sidebar h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 24px 16px;
+    margin: 0;
+    background-color: #007bff;
+    color: white;
+    position: relative;
+}
+
+.sidebar .toggle-button {
+    cursor: pointer;
+    padding: 14px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    transition: all 0.3s;
+    position: absolute;
+    bottom: 0;
+}
+
+.sidebar .toggle-button:hover {
+    background-color: #006fe6; /* 更细腻的悬停效果 */
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar .toggle-button .icon {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 20px;
+    height: 20px;
+}
+.sidebar .collapsed.icon {
+    transform: rotate(90deg);
+}
+
+.sidebar.collapsed .toggle-button .icon {
+    transform: rotate(180deg);
+}
+
+.sidebar ul {
+    padding: 16px 0;
+}
+
+.sidebar ul li {
+    padding: 12px 24px !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #444;
+}
+
+.sidebar ul li:hover {
+    background-color: #f8f9fa;
+    transform: translateX(4px);
+}
+
+.sidebar .submenu-item.active {
+}
+
+
+.sidebar .submenu {
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding-left: 12px;
+}
+
+.sidebar ul li.expanded .submenu {
+    max-height: 500px; /* 根据实际内容高度调整 */
+}
+
+.sidebar .submenu li {
+    padding: 10px 32px !important;
+    font-size: 0.95em;
+    color: #666;
+    background-color: transparent;
+}
+
+.sidebar .submenu li:hover {
+    color: #007bff;
+    background-color: rgba(0, 123, 255, 0.05);
+}
+.sidebar .submenu li.active {
+    color: #007bff;
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+.sidebar .arrow {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-left: auto;
+    width: 18px;
+    height: 18px;
+}
+
+.sidebar ul li.expanded .arrow {
+    transform: rotate(90deg);
+}
+
+/* 折叠状态适配 */
+.sidebar.collapsed ul li {
+    justify-content: center;
+    padding: 12px !important;
+}
+
+.sidebar.collapsed .menu-text,
+.sidebar.collapsed .arrow {
+    display: none;
+}
+
+.sidebar.collapsed h2 {
+    padding: 24px 8px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+}
+
+#app-content{
+    width: -webkit-fill-available;
+    height: 100vh;
+    display: flex;
+    flex-direction: row;
+}

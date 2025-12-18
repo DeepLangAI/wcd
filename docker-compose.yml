@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:8.2-noble
+    container_name: wcd-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  server-crawler:
+    build:
+      context: ./dummy_apps
+      dockerfile: Dockerfile
+    container_name: wcd-server-crawler
+    ports:
+      - "18100:18100"
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  wcd-main:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wcd-main
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mongodb
+      - server-crawler
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

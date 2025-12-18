@@ -1,0 +1,423 @@
+.rule-app{
+    width: 80%;
+    margin: auto;
+}
+
+.loading-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.loading-container.hide {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-spinner {
+    border: 4px solid #333;
+    border-top-color: transparent;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    z-index: 9999;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.double-column-rule{
+    display: flex;
+    flex-direction: row;
+}
+
+/* 规则容器 */
+.rule-container {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+}
+
+.rule-container:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 头部 */
+.rule-container .header {
+    background-color: #429dff;
+    color: #fff;
+    padding: 15px 20px;
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+}
+
+/* 添加序号 */
+.rule-container .header::before {
+    content: attr(data-index); /* 使用 data-index 的值作为序号 */
+    /*font-size: 16px;*/
+    font-weight: bold;
+    color: rgba(0, 0, 0, 0.6); /* 测试阶段序号颜色 */
+    background: #edf2ff;
+    padding-right: 10px;
+    padding-left: 10px;
+    margin-right: 10px;
+    border-radius: 5px;
+    margin-top: auto;
+}
+
+.rule-container .header.testing{
+    background-color: #969696;
+}
+.rule-container .header.testing::before {
+}
+
+.header .host{
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+/* 主体 */
+.rule-container .body {
+    padding: 15px 20px;
+    max-height: 50vh;
+    overflow: scroll;
+    min-height: 80px;
+}
+
+/* 每一项 */
+.rule-container .item {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 10px;
+
+    padding-bottom: 10px; /* 增加下边距 */
+    border-bottom: 1px solid #eee; /* 浅灰色分隔线 */
+}
+
+.rule-container .item:last-child {
+    margin-bottom: 0;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+/* 键 */
+.rule-container .key {
+    min-width: 80px;
+    max-width: fit-content;
+    font-weight: bold;
+    color: #555;
+    padding-top: 10px;
+}
+/* 值 */
+.rule-container .value {
+    width: 80%;
+    color: #333;
+    word-break: break-word;
+    font-family: 'Courier New', Courier, monospace; /* 使用等宽字体 */
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 8px;
+    background-color: #f5f5f5; /* 浅灰色背景 */
+    border-radius: 4px;
+    margin: 5px 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* 添加轻微的阴影 */
+}
+
+/* 列表容器 */
+.value .list-container {
+    display: flex;
+    flex-direction: column;
+    background-color: #fff; /* 白色背景 */
+    border: 1px solid #ddd; /* 浅灰色边框 */
+    border-radius: 4px;
+    padding: 8px;
+    margin: 5px 0;
+}
+
+/* 列表项 */
+.value .list-container .list-item {
+    margin-bottom: 5px;
+    padding: 4px 8px;
+    background-color: #f9f9f9; /* 更浅的灰色背景 */
+    border-radius: 2px;
+    border-left: 3px solid #007bff; /* 左侧蓝色边框 */
+}
+
+/* 最后一个列表项不需要下边距 */
+.value .list-container .list-item:last-child {
+    margin-bottom: 0;
+}
+
+/* 鼠标悬停效果 */
+.value .list-container .list-item:hover {
+    background-color: #e9f5ff; /* 悬停时浅蓝色背景 */
+    cursor: default;
+}
+
+/* 字符串值的特殊样式 */
+.value.string-value {
+    background-color: #e8f5e9; /* 浅绿色背景 */
+    border-left: 3px solid #4caf50; /* 左侧绿色边框 */
+    padding: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* 添加轻微的阴影 */
+}
+.value.bool-value {
+    /* 使用伪元素创建可视化的复选框 */
+    position: relative;
+    padding-left: 25px;
+    cursor: default;
+    display: inline-block;
+    line-height: 20px;
+    margin-top: 10px;
+    margin-left: 10px;
+    margin-bottom: 20px;
+    margin-right: 8%;
+}
+
+.value.bool-value:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #ddd;
+    border-radius: 3px;
+    background-color: #fff;
+    transition: all 0.2s;
+}
+
+.value.bool-value.true:before {
+    background-color: #4CAF50;
+    border-color: #4CAF50;
+}
+
+.value.bool-value.true:after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 6px;
+    height: 12px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.value.bool-value.false:before {
+    background-color: #f5f5f5;
+}
+
+
+/* 下拉菜单容器 */
+.dropdown-container {
+    position: relative;
+    margin-left: auto;
+}
+
+/* 下拉按钮 */
+.dropdown-button {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #fff;
+    cursor: pointer;
+    padding: 0 10px;
+    outline: none;
+}
+
+.dropdown-button:hover {
+    color: #ccc;
+}
+
+/* 下拉菜单 */
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: none;
+    z-index: 1000;
+    /*min-width: 120px;*/
+}
+
+.dropdown-menu.active {
+    display: block;
+}
+
+/* 下拉菜单项 */
+.dropdown-item {
+    padding: 8px 12px;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    width: max-content;
+    border: 1px solid transparent; /* 初始状态为透明边框 */
+}
+
+.dropdown-item:hover {
+    background-color: #f5f5f5;
+    border-color: #ddd; /* 鼠标悬停时显示边框 */
+}
+
+.search-area{
+    display: flex;
+    flex-direction: row;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+/* 规则组容器 */
+.rule-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0; /* 防止压缩 */
+}
+
+/* 规则标签 */
+.rule-label {
+    font-size: 14px;
+    color: #666;
+    white-space: nowrap; /* 防止文字换行 */
+    user-select: none; /* 禁止文字选中 */
+}
+
+/*选择规则组*/
+.rule-selector {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    font-size: 14px;
+    min-width: 120px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.rule-selector:hover {
+    border-color: #007bff;
+}
+
+/* 搜索框 */
+.search-input {
+    min-width: 300px;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.search-input:focus {
+    border-color: #007bff;
+}
+
+.search-result-container {
+    max-height: 87vh;
+    overflow-y: auto; /* 使用 auto 而不是 scroll，避免始终显示滚动条 */
+    border: 1px solid #ddd; /* 添加边框 */
+    border-radius: 8px; /* 圆角 */
+    padding: 15px; /* 内边距 */
+    background-color: #fff; /* 白色背景 */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* 添加阴影 */
+    margin-top: 20px; /* 与上方元素的间距 */
+    margin-bottom: 20px;
+
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+/* 悬停效果 */
+.search-result-container:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); /* 悬停时阴影加深 */
+}
+
+.search-result-body{
+    flex: 1;
+    max-height: 100%;
+}
+
+/* 按钮容器 */
+.button-container {
+    display: flex;
+    gap: 10px; /* 按钮之间的间距 */
+    margin-left: 10px; /* 与搜索框的间距 */
+    width: 100%;
+}
+
+/* 搜索按钮和新建按钮共用样式 */
+.search-button, .new-button, .export-button, .import-button {
+    padding: 7px 15px;
+    font-size: 16px;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+/* 搜索按钮样式 */
+.search-button {
+    background-color: #007bff;
+}
+
+.search-button:hover {
+    background-color: #0056b3;
+}
+
+/* 新建按钮样式 */
+.new-button {
+    background-color: #28a745; /* 绿色背景 */
+}
+
+.new-button:hover {
+    background-color: #218838; /* 深绿色悬停效果 */
+}
+
+/* 导出按钮样式 */
+.export-button {
+    background-color: #17a2b8; /* 青色背景 */
+    margin-left: auto;
+}
+
+.export-button:hover {
+    background-color: #138496; /* 深青色悬停效果 */
+}
+
+/* 导入按钮样式 */
+.import-button {
+    background-color: #9978d5; /* 紫色背景 */
+    margin-left: 10px;
+}
+
+.import-button:hover {
+    background-color: #9945d1; /* 深紫色悬停效果 */
+}

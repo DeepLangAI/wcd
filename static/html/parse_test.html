@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> 解析实验 </title>
+        <meta name="referrer" content="no-referrer">
+
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+
+        <script src="/public/js/jquery-3.6.0.min.js"></script>
+        <script src="/public/js/axios.min.js"></script>
+        <script src="/public/js/echarts.min.js"></script>
+
+        <script src="/public/js/sidebar.js"></script>
+        <script src="/public/js/parse_history.js"></script>
+
+        <link rel="stylesheet" href="/public/css/common.css">
+        <link rel="stylesheet" href="/public/css/modal.css">
+        <link rel="stylesheet" href="/public/css/sidebar.css">
+        <link rel="stylesheet" href="/public/css/parse_test.css">
+    </head>
+<body>
+    <div id="app"/>
+
+<script>
+    let RuleStageEnum = {
+        Testing: 0,
+        Production: 1,
+    }
+    let RuleKeyToRead = {
+        'name': '站点',
+        'bodies': '正文',
+        'noises': '噪声',
+        'author': '作者',
+        'title': '标题',
+        'pub_time': '发布时间',
+        'create_time': '创建于',
+        'update_time': '修改于',
+    }
+
+
+
+    function createLoadingContainer(){
+        let loadingContainer = $('<div>')
+            .addClass('loading-container')
+            .addClass('hide')
+            .append(
+                $('<div>').addClass('loading-spinner')
+            )
+        return loadingContainer
+    }
+    // 显示加载状态
+    function showLoadingStatus(loadingContainer) {
+        loadingContainer.removeClass('hide');
+    }
+
+    // 隐藏加载状态
+    function hideLoadingStatus(loadingContainer) {
+        loadingContainer.addClass('hide');
+    }
+
+    function getFaviconUrl(url){
+        try {
+            let domain = new URL(url).hostname
+            return 'http://' + domain + '/favicon.ico'
+        } catch (e) {
+            console.log(e)
+            return ''
+        }
+    }
+
+    // 提示信息
+    function showToast(message) {
+        let $toast = $('<div class="toast">').text(message);
+        $('body').append($toast);
+        setTimeout(() => $toast.remove(), 2000);
+    }
+    function fallbackCopy(text) {
+        const $temp = $('<textarea>');
+        $temp.val(text).css({
+            position: 'absolute',
+            left: '-9999px'
+        }).appendTo('body');
+
+        $temp[0].select();
+        $temp[0].setSelectionRange(0, 999999999); // 兼容移动端
+
+        const success = document.execCommand('copy');
+        $temp.remove();
+
+        if (success) {
+            showToast("复制成功")
+        } else {
+            showToast("复制失败")
+        }
+    }
+
+    $(document).ready(function () {
+        let $loadingContainer = createLoadingContainer()
+
+        let $app = $('#app');
+        let $modal = $('<div id="ruleModal">');
+        let $sidebar = generateNav('解析实验')
+        let $mainContent = $(`
+        <div style="display: flex; flex-direction: row">
+            <div id="sidebar"></div>
+            <div id="app-content">
+                <div class="history-list-container">
+                </div>
+                <div class="parse-test-container">
+                    <div class="search-area">
+                        <input type="text" id="url-input" placeholder="请输入URL" class="search-input">
+
+                        <!-- 新增规则组标签和选择器 -->
+                        <div class="rule-group">
+                            <span class="rule-label">规则组：</span>
+                            <select class="rule-selector" id="rule-select">
+                                <option value="0" selected>仅正式</option>
+                                <option value="1">仅测试</option>
+                                <option value="2">正式优先</option>
+                                <option value="3">测试优先</option>
+                            </select>
+                        </div>
+
+                        <div class="search-button" >解析</div>
+                    </div>
+                    <div class="search-result-container">
+                    </div>
+                </div>
+            </div>
+        </div>`)
+
+        $mainContent.find('#sidebar').append($sidebar)
+        $app.append($mainContent, $loadingContainer, $modal)
+
+        function initHistoryList(){
+            let historyList = GetHistoryList()
+            let $historyListContainer = $mainContent.find('.history-list-container')
+            $historyListContainer.empty()
+            historyList.forEach((history) => {
+                let $historyItem = $(`
+                    <div class="history-item ${history.worthless ? 'worthless': ''}" style="background-image: url(${getFaviconUrl(history.url)}); background-repeat: no-repeat; background-size: 20px;">
+                        <div class="history-item-title">
+                            <div class="history-item-title-text">
+                                ${history.title}
+                            </div>
+                            <div class="history-item-control-area">
+                                <div class="history-item-title-time">
+                                    ${history.time}
+                                </div>
+                                <div class="history-item-title-buttons">
+                                    <button class="history-item-button">详情</button>
+                                    <button class="history-item-button">删除</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="history-item-detail">
+                            <div class="history-item-detail-row">
+                                <div class="history-item-detail-label">链接</div>
+                                <div class="history-item-detail-value">${history.url}</div>
+                            </div>
+                            <div class="history-item-detail-row">
+                                <div class="history-item-detail-label">作者</div>
+                                <div class="history-item-detail-value">${history.author}</div>
+                            </div>
+                            <div class="history-item-detail-row">
+                                <div class="history-item-detail-label">发布时间</div>
+                                <div class="history-item-detail-value">${history.publishTime}</div>
+                            </div>
+                        </div>
+                    </div>
+                    `
+                )
+                let $itemContainer = $historyItem.find('.history-item')
+                let $titleContainer = $historyItem.find('.history-item-title')
+                let $detailButton = $historyItem.find('.history-item-button').eq(0)
+                let $deleteButton = $historyItem.find('.history-item-button').eq(1)
+                let $historyDetail = $historyItem.find('.history-item-detail')
+                // if (history.worthless){
+                //     $itemContainer.addClass('worthless')
+                // }
+
+                $titleContainer.on('click', function (){
+                    let $input = $mainContent.find('.search-input')
+                    $input.val(history.url)
+                    $input.focus()
+                })
+                $detailButton.on('click', function(event) {
+                    event.stopPropagation()
+                    $historyDetail.toggleClass('active')
+                })
+                $deleteButton.on('click', function(event) {
+                    event.stopPropagation()
+                    $historyItem.addClass('removing');
+                    setTimeout(()=>{
+                        RemoveHistoryByUrl(history.url)
+                        $historyItem.remove();
+                    }, 300)
+                })
+                $historyListContainer.append($historyItem)
+            })
+        }
+
+        function showBaseParseMeta(baseParseResp, $parent){
+            $parent.empty()
+            let keys = [
+                {'field': 'title', 'text': '标题'},
+                {'field': 'author', 'text': '作者'},
+                {'field': 'pub_time', 'text': '发布时间'},
+                {'field': 'content_source', 'text': '来源'},
+                {'field': 'worthless', 'text': '是否无意义'},
+                {'field': 'worth_type', 'text': '价值类型'},
+            ]
+            let $container = $('<div class="meta-container">')
+            for (let key of keys){
+                $container.append($(`
+                    <div class="meta-row">
+                        <div class="meta-label">${key.text}</div>
+                        <div class="meta-value">${baseParseResp[key.field]}</div>
+                    </div>
+                `))
+            }
+            if (baseParseResp.surface_image){
+                $container.append($(`
+                    <div class="meta-row">
+                        <div class="meta-label">封面图</div>
+                        <div class="meta-value">
+                            <img src="${baseParseResp.surface_image}" style="max-height: 100px"/>
+                        </div>
+                    </div>
+                `))
+            }
+            let author_meta = baseParseResp.author_meta
+            if (author_meta){
+                $container.append($(`
+                    <div class="meta-row">
+                        <div class="meta-label">作者元信息</div>
+                        <div class="meta-value">
+                            <div class="meta-row">
+                                <div class="meta-label">头像</div>
+                                <div class="meta-value">
+                                    <img src="${author_meta.profile_url}" style="max-height: 50px"/>
+                                </div>
+                            </div>
+                            <div class="meta-row">
+                                <div class="meta-label">名</div>
+                                <div class="meta-value">${author_meta.name}</div>
+                            </div>
+                            <div class="meta-row">
+                                <div class="meta-label">描述</div>
+                                <div class="meta-value">${author_meta.description}</div>
+                            </div>
+                            <div class="meta-row">
+                                <div class="meta-label">uid</div>
+                                <div class="meta-value">${author_meta.uid}</div>
+                            </div>
+                        </div>
+                    </div>
+                `))
+            }
+            if (baseParseResp.oss_info){
+                $container.append($(`
+                    <div class="meta-row">
+                        <div class="meta-label">解析详情</div>
+                        <div class="meta-value">
+                            <a href="${baseParseResp.oss_info.url}" target="_blank">点击下载</a>
+                        </div>
+                    </div>
+                `))
+            }
+            if (baseParseResp.site_icon){
+                $container.append($(`
+                    <div class="meta-row">
+                        <div class="meta-label">站点图标</div>
+                        <div class="meta-value">
+                            <img src="${baseParseResp.site_icon}" style="max-height: 50px"/>
+                        </div>
+                    </div>
+                `))
+            }
+            if (baseParseResp.description){
+                $container.append($(`
+                    <div class="meta-row">
+                        <div class="meta-label">页面描述</div>
+                        <div class="meta-value">${baseParseResp.description}</div>
+                    </div>
+                `))
+            }
+            $parent.append($container)
+        }
+        function showBaseParseCrawl(baseParseResp, $parent){
+            $parent.empty()
+            let $readableContainer = $('<div class="readable-container">')
+
+            let srcdoc = baseParseResp.raw_html || ''
+
+            // 创建 iframe
+            let $iframe = $(`<iframe>`, {
+                // sandbox: baseParseResp['url'].indexOf('mp.weixin.qq.com') == -1 ? 'true' : 'false',
+                class: 'reader-iframe',
+                srcdoc: srcdoc,
+                width: '100%',
+                height: '100%',
+            })
+            if (baseParseResp['url'].indexOf('mp.weixin.qq.com') == -1) {
+                // 非微信文章
+                $iframe.attr('sandbox', 'allow-same-origin');
+            }
+
+            // 处理空内容情况
+            if (!baseParseResp.raw_html) {
+                $parent.addClass('reader-empty')
+                    .html('<div>无可用网页内容</div>');
+                return;
+            }
+
+            // 安全限制（可选）
+            // if (needSecurityRestriction()) { // 需要实现检测逻辑
+            //     $iframe.addClass('reader-iframe--restricted')
+            //         .attr('sandbox', 'allow-same-origin');
+            // }
+
+            $readableContainer.append($iframe);
+            $parent.append($readableContainer);
+        }
+
+        function showBaseReadableHtml(baseParseResp, $parent){
+            $parent.empty()
+            let $readableContainer = $('<div class="readable-container">')
+
+            // 添加加载状态
+            // let $loader = $('<div class="reader-loading">加载阅读器内容中...</div>');
+            // $parent.append($loader);
+
+            let srcdoc = baseParseResp.readable_html || ''
+            srcdoc += `
+            <style>
+body {
+    -webkit-font-smoothing: antialiased;
+    font-family: -apple-system, "PingFang SC", "BlinkMacSystemFont", "Helvetica Neue", "Microsoft Yahei", Arial, "Segoe UI", "Hiragino Sans GB", "Heiti SC", "sans-serif", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    font-size: 1rem !important;
+    line-height: 1.7;
+    font-weight: 400;
+    color: #2d2d2d;
+    background-color: transparent;
+    padding-bottom: 20px;
+    word-spacing: 0.5px;
+    width: 90%;
+    margin: auto;
+    margin-top: 15px;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin-top: 34px;
+}
+deeplang-intro, [data-deeplang-intro] {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(234, 234, 234, .8);
+}
+h1, [data-deeplang-h1] {
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.6;
+    color: #1a1a1a;
+    font-style: normal;
+}
+h2, [data-deeplang-h2] {
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.6;
+    color: #1a1a1a;
+    font-style: normal;
+}
+h3, [data-deeplang-h3] {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.6;
+    color: #1a1a1a;
+    font-style: normal;
+}
+h4, [data-deeplang-h4] {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.6;
+    color: #1a1a1a;
+    font-style: normal;
+}
+deeplang-legend, [data-deeplang-legend], legend {
+    font-size: 16px;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 10;
+    line-clamp: 10;
+    -webkit-box-orient: vertical;
+    line-height: 32px;
+    text-align: justify;
+    color: #7A7B7B;
+}
+deeplang-reference, [data-deeplang-reference] {
+    font-weight: 400;
+    color: #7A7B7B;
+    font-size: 1.125rem;
+}
+pre code{
+    display: block;
+    overflow-x: auto;
+    padding: 1em;
+    background: antiquewhite;
+    border-radius: 10px;
+}
+
+blockquote {
+    margin-left: 0;
+    padding-left: 20px;
+    border-left: 2px solid #d9d9d9;
+    font-size: 1.125rem;
+}
+
+            </style>
+            `
+            // 创建 iframe
+            let $iframe = $('<iframe>', {
+                class: 'reader-iframe',
+                srcdoc: srcdoc,
+                width: '100%',
+                height: '100%',
+            })
+
+            // 处理空内容情况
+            if (!baseParseResp.readable_html) {
+                $parent.addClass('reader-empty')
+                    .html('<div>无可用网页内容</div>');
+                return;
+            }
+
+            // 安全限制（可选）
+            // if (needSecurityRestriction()) { // 需要实现检测逻辑
+            //     $iframe.addClass('reader-iframe--restricted')
+            //         .attr('sandbox', 'allow-same-origin');
+            // }
+
+            $readableContainer.append($iframe);
+            $parent.append($readableContainer);
+        }
+        function showBaseTextParse(baseParseResp, $parent) {
+            $parent.empty();
+
+            // 解析数据
+            let textparseResp = JSON.parse(baseParseResp.model_result_str);
+            let infos = textparseResp.infos;
+
+            // 创建容器
+            let $container = $('<div class="textparse-container">');
+            let $header = $('<div class="header">');
+            let $filters = $('<div class="filters">');
+            let $results = $('<div class="results">');
+
+            // 初始化状态
+            let selectedLabels = [];
+            let allLabels = [...new Set(infos.map(item => item.label))];
+            allLabels = allLabels.sort((a, b) => a.localeCompare(b));
+
+            // 创建带操作的筛选区块
+            let $labelFilter = createFilterWithControls('label', '阅读器标签筛选', allLabels);
+
+            // 复制按钮
+            let $copyButton = $('<button class="copy-btn">📋 复制完整数据</button>')
+                .on('click', () => {
+                    if (navigator.clipboard){
+                        navigator.clipboard.writeText(baseParseResp.model_result_str)
+                            .then(() => showToast('复制成功'))
+                            .catch(() => showToast('复制失败'));
+                    } else{
+                        fallbackCopy(baseParseResp.model_result_str);
+                    }
+                });
+
+            // 渲染逻辑
+            function renderResults() {
+                $results.empty();
+
+                let filteredInfos = infos.filter(item => {
+                    let matchLabel = selectedLabels.length === 0 || selectedLabels.includes(item.label);
+                    return matchLabel;
+                });
+
+                filteredInfos.forEach(info => {
+                    $results.append(createResultItem(info));
+                });
+
+                // 空状态处理
+                if (filteredInfos.length === 0) {
+                    $results.html('<div class="empty-state">🕳️ 没有匹配的结果</div>');
+                }
+            }
+
+            // 创建带控件的筛选区块
+            function createFilterWithControls(type, title, options) {
+                let $section = $('<div class="filter-section">');
+                let $header = $('<div class="filter-header">')
+                    .append($('<span class="filter-title">').text(title));
+
+                // 操作按钮
+                let $controls = $('<div class="filter-controls">')
+                    .append(
+                        $('<button class="control-btn select-all">全选</button>')
+                            .on('click', () => updateSelection(type, true)),
+                        $('<button class="control-btn clear-all">清空</button>')
+                            .on('click', () => updateSelection(type, false))
+                    );
+
+                // 标签容器
+                let $tags = $('<div class="tag-container">');
+                options.forEach(option => {
+                    $tags.append(createTag(type, option));
+                });
+
+                return $section.append(
+                    $header.append($controls),
+                    $tags
+                );
+            }
+
+            // 更新选择状态
+            function updateSelection(type, isSelectAll) {
+                selectedLabels = isSelectAll ? allLabels : [];
+
+                $(`.tag[data-type="${type}"]`)
+                    .toggleClass('selected', isSelectAll)
+                    .each(function() {
+                        let tagValue = $(this).text();
+                        let shouldSelect = isSelectAll ? allLabels.includes(tagValue) : false;
+                        $(this).toggleClass('selected', shouldSelect);
+                    });
+
+                renderResults();
+            }
+
+            // 创建单个标签
+            function createTag(type, value) {
+                return $('<div class="tag">')
+                    .text(value)
+                    .attr('data-type', type)
+                    .toggleClass('selected', selectedLabels.includes(value))
+                    .on('click', function() {
+                        let $tag = $(this);
+                        let tagValue = $tag.text();
+
+                        selectedLabels = selectedLabels.includes(tagValue)
+                            ? selectedLabels.filter(t => t !== tagValue)
+                            : [...selectedLabels, tagValue];
+
+                        $tag.toggleClass('selected');
+                        renderResults();
+                    });
+            }
+
+            // 组装界面
+            $header.append(
+                $('<h2>').text(`切句数量：${infos.length}`),
+                $copyButton,
+            );
+            $filters.append($labelFilter);
+            $container.append($header, $filters, $results);
+            $parent.append($container);
+            renderResults();
+
+            // 创建结果项
+            function createResultItem(info) {
+                return $('<div class="result-item">')
+                    .append(
+                        $('<div class="content">').append(
+                            $('<div class="txt">').text(info.txt),
+                            $('<div class="meta">').html(`
+                        <span class="label-tag">${info.label}</span>
+                    `)
+                        )
+                    );
+            }
+
+        }
+        function showBaseImages(baseParseResp, $parent) {
+            $parent.empty();
+
+            // 空状态处理
+            if (!baseParseResp?.images?.length) {
+                $parent.html('<div class="empty-state">暂无图片</div>');
+                return;
+            }
+
+            // 创建画廊容器
+            let $galleryContainer = $('<div class="gallery-container">');
+            let $imageList = $('<div class="image-list">');
+
+            // 遍历图片URL
+            baseParseResp.images.forEach((url, index) => {
+                let $imageItem = $('<div class="image-item">')
+                    .append(
+                        $('<img>')
+                            .attr('src', url)
+                            .attr('alt', `图片 ${index + 1}`)
+                            .on('click', () => openLightbox(url, baseParseResp.images))
+                    );
+
+                $imageList.append($imageItem);
+            });
+
+            $galleryContainer.append($imageList);
+            $parent.append($galleryContainer);
+        }
+
+        function showBaseParseTextContent(baseParseResp, $parent) {
+            $parent.empty();
+
+            // 空状态处理
+            if (!baseParseResp?.text?.length) {
+                $parent.html('<div class="empty-state">📭 暂无文本内容</div>');
+                return;
+            }
+
+            // 创建文本容器
+            const $container = $('<div class="text-content-wrapper">');
+            const $textContent = $('<pre class="text-content-container">').text(baseParseResp.text);
+
+            // 添加复制按钮
+            let $copyButton = $('<button class="copy-btn">📋 复制完整数据</button>')
+                .on('click', () => {
+                    if (navigator.clipboard){
+                        navigator.clipboard.writeText(baseParseResp.text)
+                            .then(() => showToast('复制成功'))
+                            .catch(() => showToast('复制失败'));
+                    } else{
+                        fallbackCopy(baseParseResp.text);
+                    }
+                });
+
+            let $header = $('<div>').addClass('header')
+            $header.append(
+                $('<h2>').text(`总字数：${baseParseResp.text.length}`),
+                $copyButton,
+            )
+
+            $container.append($header, $textContent);
+            $parent.append($container);
+        }
+
+        // 打开大图预览
+        function openLightbox(url, images) {
+            let currentIndex = images.indexOf(url);
+
+            let $lightbox = $('<div class="lightbox">')
+                .append(
+                    $('<div class="lightbox-content">')
+                        .append(
+                            $('<img>')
+                                .attr('src', url)
+                                .addClass('lightbox-image')
+                        ),
+                    $('<button class="lightbox-close">&times;</button>')
+                        .on('click', () => $lightbox.remove()),
+                    $('<button class="lightbox-nav lightbox-prev">&lt;</button>')
+                        .on('click', () => {
+                            currentIndex = (currentIndex - 1) % images.length;
+                            navigateLightbox(currentIndex, images)
+                        }),
+                    $('<button class="lightbox-nav lightbox-next">&gt;</button>')
+                        .on('click', () => {
+                            currentIndex = (currentIndex + 1) % images.length;
+                            navigateLightbox(currentIndex, images)
+                        })
+                );
+            // 监听 ESC 键
+            $(document).on('keydown.lightbox', (e) => {
+                if (e.key === 'Escape') {
+                    closeLightbox();
+                }
+            });
+            // 支持点击遮罩层关闭
+            $lightbox.on('click', (e) => {
+                if (e.target === $lightbox[0]) {
+                    closeLightbox();
+                }
+            });
+
+            $('body').append($lightbox);
+        }
+        // 关闭大图预览
+        function closeLightbox() {
+            $('.lightbox').remove();
+            $(document).off('keydown.lightbox'); // 移除事件监听
+        }
+
+        function navigateLightbox(index, images) {
+            let newUrl = images[index];
+
+            $('.lightbox-image')
+                .attr('src', newUrl)
+                .css('opacity', 0)
+                .on('load', function() {
+                    $(this).css('opacity', 1);
+                });
+        }
+
+        function searchSuccessFunc(baseParseResp){
+            function modifyActiveTab($this){
+                $header.find('.result-tab-button').removeClass('active')
+                $this.addClass('active')
+            }
+
+            let $searchResultContainer = $mainContent.find('.search-result-container')
+            $searchResultContainer.empty()
+            $searchResultContainer.html(`
+                <div class="search-result-header">
+                </div>
+                <div class="search-result-body">
+                </div>
+            `)
+            let $header = $searchResultContainer.find('.search-result-header')
+            let $body = $searchResultContainer.find('.search-result-body')
+            $header.append(
+                $('<div>')
+                    .addClass('result-tab-button')
+                    .text('meta信息').on('click', function (){
+                        // 如果当前已经有active，不操作
+                        if ($(this).hasClass('active')) {
+                            return
+                        }
+                        modifyActiveTab($(this))
+                        showBaseParseMeta(baseParseResp, $body)
+                }),
+                $('<div>')
+                    .addClass('result-tab-button')
+                    .text('抓取结果').on('click', function (){
+                        // 如果当前已经有active，不操作
+                        if ($(this).hasClass('active')) {
+                            return
+                        }
+                        modifyActiveTab($(this))
+                        showBaseParseCrawl(baseParseResp, $body)
+                }),
+                $('<div>')
+                    .addClass('result-tab-button')
+                    .text('阅读器网页').on('click', function (){
+                        // 如果当前已经有active，不操作
+                        if ($(this).hasClass('active')) {
+                            return
+                        }
+                        modifyActiveTab($(this))
+                        showBaseReadableHtml(baseParseResp, $body)
+                }),
+                $('<div>')
+                    .addClass('result-tab-button')
+                    .text('text-parse标签').on('click', function (){
+                        // 如果当前已经有active，不操作
+                        if ($(this).hasClass('active')) {
+                            return
+                        }
+                        modifyActiveTab($(this))
+                        showBaseTextParse(baseParseResp, $body)
+                }),
+                $('<div>')
+                    .addClass('result-tab-button')
+                    .text('解析图片').on('click', function (){
+                        // 如果当前已经有active，不操作
+                        if ($(this).hasClass('active')) {
+                            return
+                        }
+                        modifyActiveTab($(this))
+                        showBaseImages(baseParseResp, $body)
+                }),
+                $('<div>')
+                    .addClass('result-tab-button')
+                    .text('解析文本').on('click', function (){
+                        // 如果当前已经有active，不操作
+                        if ($(this).hasClass('active')) {
+                            return
+                        }
+                        modifyActiveTab($(this))
+                        showBaseParseTextContent(baseParseResp, $body)
+                }),
+            )
+            // 点击第一个tab
+            $header.find('.result-tab-button').first().click()
+        }
+
+        function doSearchByEventMsg(url, raw_html){
+            showLoadingStatus($loadingContainer)
+            axios.post('/base-parse', {
+                'url': url,
+                'html': raw_html,
+                'entry_type': 7,
+                'entry_id': '123',
+                'with_raw_html': true,
+                'rule_stage_group': 0,
+                'skip_cache': true,
+                'save_crawl_html': true,
+            }).then(response => {
+                let data = response.data
+                if (data.code != 0) {
+                    showToast("解析失败：" + data.msg)
+                    return
+                }
+                let item = BuildHistory(
+                    data.url,
+                    data.title,
+                    data.author,
+                    data.pub_time,
+                    data.worthless,
+                )
+                PushHistoryList(item)
+                initHistoryList()
+                searchSuccessFunc(data)
+            }).catch(error => {
+                console.error('Error create data:', error);
+            }).finally(()=>{
+                hideLoadingStatus($loadingContainer)
+            })
+        }
+        function doSearchByInput(){
+            let input = $mainContent.find('.search-input').val()
+            let ruleStageGroup = parseInt($mainContent.find('.rule-selector').val())
+            if (!input) {
+                return
+            }
+            showLoadingStatus($loadingContainer)
+            axios.post('/base-parse', {
+                'url': input,
+                'entry_type': 7,
+                'entry_id': '123',
+                'with_raw_html': true,
+                'rule_stage_group': ruleStageGroup,
+                'skip_cache': true,
+                'save_crawl_html': true,
+            }).then(response => {
+                let data = response.data
+                if (data.code != 0) {
+                    showToast("解析失败：" + data.msg)
+                    return
+                }
+                let item = BuildHistory(
+                    data.url,
+                    data.title,
+                    data.author,
+                    data.pub_time,
+                    data.worthless,
+                )
+                PushHistoryList(item)
+                initHistoryList()
+                searchSuccessFunc(data)
+            }).catch(error => {
+                console.error('Error create data:', error);
+            }).finally(()=>{
+                hideLoadingStatus($loadingContainer)
+            })
+        }
+
+        function initSearchEvent(){
+            let $input = $mainContent.find('.search-input')
+            let $searchButton = $mainContent.find('.search-button')
+            // let $searchResultContainer = $mainContent.find('.search-result-container')
+
+            $searchButton.on('click', function() {
+                doSearchByInput()
+            })
+
+            $input.on('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    doSearchByInput()
+                }
+            })
+
+        }
+
+        function main(){
+            initHistoryList()
+            initSearchEvent()
+            window.addEventListener('message', function(event) {
+                console.log('Received message from iframe:', event.data);
+                let eventData = event.data
+                let url = eventData.url
+                let rawHtml = eventData.raw_html
+                if (url && rawHtml) {
+                    $mainContent.find('.search-input').val(url)
+                    doSearchByEventMsg(url, rawHtml)
+                }
+            })
+        }
+
+        main()
+
+    })
+</script>
+</body>
+</html>
