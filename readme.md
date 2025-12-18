@@ -101,11 +101,9 @@ WCD系统的处理流程主要包含以下几个关键步骤：
 
 #### 1. 配置环境
 
-```sh
-# 修改配置文件中的数据库连接信息，默认使用dev环境
-# 配置文件路径：conf/config_dev.yaml
-```
+本地启动需要**修改配置文件中的数据库连接信息**，默认的数据库连接地址适用于docker compose up方式启动。如果您使用的是本地MongoDB，请修改 `conf/config_dev.yaml` 中的 `mongo` 配置项。
 
+配置文件路径：conf/config_dev.yaml。根据环境变量MODE_ENV来选择环境，默认使用dev环境。
 #### 2. 安装依赖
 
 ```sh
