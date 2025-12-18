@@ -103,7 +103,8 @@ WCD系统的处理流程主要包含以下几个关键步骤：
 
 本地启动需要**修改配置文件中的数据库连接信息**，默认的数据库连接地址适用于docker compose up方式启动。如果您使用的是本地MongoDB，请修改 `conf/config_dev.yaml` 中的 `mongo` 配置项。
 
-配置文件路径：conf/config_dev.yaml。根据环境变量MODE_ENV来选择环境，默认使用dev环境。
+wcd根据环境变量MODE_ENV来选择加载不同环境的配置文件，默认使用dev环境，配置文件路径：conf/config_dev.yaml。
+
 #### 2. 安装依赖
 
 ```sh
@@ -169,7 +170,7 @@ curl http://localhost:8080/ping
 <img src="./static/img/rule_list.png">
 
 2. 点击页面上的「导入」按钮
-3. 选择项目根目录下的 `data/rules.json` 文件
+3. 选择项目根目录下的 `data/rules_xxx.json`文件(示例，仅供测试)
 4. 等待导入完成，系统将显示导入成功的提示
 
 ### 快速体验
