@@ -320,6 +320,10 @@ func (c *Cleanner) removePotentialNoiseIsSafe(elem *etree.Element, bodyText stri
 
 func (c *Cleanner) CleanPotentialNoise() error {
 	attrs := []string{"clsss", "id"}
+	// 全文正文只在文档真的变了（删掉噪声节点）之后才重算。
+	// 原先每判一个节点都从根节点重新拼一遍全文，节点数和全文长度一起涨，
+	// 整轮清洗就成了平方级：维基百科这类长条目光这一步就要几十秒。
+	bodyText := c.CleaningDoc.GetRawDocText(c.CleaningDoc.Doc.Root())
 	c.CleaningDoc.XpathIter("//*", func(elem *etree.Element) {
 		attrStr := strings.Join(
 			utils.Filter(
@@ -347,7 +351,7 @@ func (c *Cleanner) CleanPotentialNoise() error {
 			positiveAttrResult := consts.RegexRule_Positive.FindString(attrValue)
 			if (unlikelyAttrResult != "" || negativeAttrResult != "" || noiseAttrResult != "") &&
 				maybeOkAttrResult == "" && positiveAttrResult == "" || !utils.Contains(consts.CANT_DEL_TAGS, elem.Tag) &&
-				c.removePotentialNoiseIsSafe(elem, "") {
+				c.removePotentialNoiseIsSafe(elem, bodyText) {
 				isNoise = true
 				break
 			}
@@ -355,6 +359,8 @@ func (c *Cleanner) CleanPotentialNoise() error {
 		if isNoise && noiseAttrResult != "" {
 			hlog.CtxInfof(c.ctx, "remove potential noise: %v, match: %v, text: %v", c.CleaningDoc.GetElemPositionId(elem), noiseAttrResult, attrStr)
 			c.CleaningDoc.RemovElem(elem)
+			// 文档变了，下一轮判断要按新的全文比
+			bodyText = c.CleaningDoc.GetRawDocText(c.CleaningDoc.Doc.Root())
 		}
 	})
 	return nil
