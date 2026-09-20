@@ -197,12 +197,10 @@ func (s *Splitter) getAtomWindows(sentences []*wcd.AtomicSentence) ([][]*wcd.Ato
 }
 
 func (s *Splitter) addTextVnode(window []*wcd.AtomicText) {
-	xpath := fmt.Sprintf("//*[@%v='%v']", consts.KeyPositionId, window[0].PositionID)
-	elems := s.Doc.Xpath(xpath)
-	if len(elems) == 0 {
+	elem := s.Doc.FindByPositionId(fmt.Sprintf("%v", window[0].PositionID))
+	if elem == nil {
 		return
 	}
-	elem := elems[0]
 	elem.SetText("")
 	vnodeGroup := etree.Element{
 		Tag: consts.VNODE_TAG_PREFIX + "pos-group",
@@ -236,12 +234,10 @@ func (s *Splitter) addTextVnode(window []*wcd.AtomicText) {
 }
 
 func (s *Splitter) addTailVnode(window []*wcd.AtomicText) {
-	xpath := fmt.Sprintf("//*[@%v='%v']", consts.KeyPositionId, window[0].PositionID)
-	elems := s.Doc.Xpath(xpath)
-	if len(elems) == 0 {
+	elem := s.Doc.FindByPositionId(fmt.Sprintf("%v", window[0].PositionID))
+	if elem == nil {
 		return
 	}
-	elem := elems[0]
 	elem.SetTail("")
 	vnodeGroup := etree.Element{
 		Tag: consts.VNODE_TAG_PREFIX + "pos-group",

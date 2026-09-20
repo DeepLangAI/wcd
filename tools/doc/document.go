@@ -25,7 +25,8 @@ import (
 )
 
 type Document struct {
-	xpathCache     map[string]string // position_id to xpath
+	xpathCache     map[string]string         // position_id to xpath
+	posIndex       map[string]*etree.Element // position_id to element
 	xmlQueryDoc    *xmlquery.Node
 	ctx            context.Context
 	rawHtml        string
@@ -378,15 +379,14 @@ func (d *Document) ResetHtml(html *etree.Document) error {
 	return nil
 }
 
+// simpleXPathRe 判断 XPath 是否走 etree 直查的那条规则。
+// 正则比较复杂，可以去这里可视化查看：https://wangwl.net/static/projects/visualRegex#
+// 提到包级一次编译：它不随入参变化，放在函数里等于每次 Xpath 调用都重编译一遍。
+var simpleXPathRe = regexp.MustCompile(`^((//|/)(\*|\w+)(((\[\d+\])?(\[@\w+='\w+'\])?)|((\[@\w+='\w+'\])?(\[\d+\])?)))*?$`)
+
 // IsSimpleXPath 判断给定的 XPath 是否是简单的 XPath
 func (d *Document) isSimpleXPath(xpath string) bool {
-	// 定义正则表达式
-	//正则比较复杂，可以去这里可视化查看：https://wangwl.net/static/projects/visualRegex#
-	simpleXPathPattern := `^((//|/)(\*|\w+)(((\[\d+\])?(\[@\w+='\w+'\])?)|((\[@\w+='\w+'\])?(\[\d+\])?)))*?$`
-	re := regexp.MustCompile(simpleXPathPattern)
-
-	// 测试匹配
-	return re.MatchString(xpath)
+	return simpleXPathRe.MatchString(xpath)
 }
 
 func (d *Document) RelativeXpath(elem *etree.Element, xpath string) []*etree.Element {
@@ -457,6 +457,51 @@ func (d *Document) GetElemXpath(elem *etree.Element) string {
 	}
 	return ""
 }
+
+// FindByPositionId 按 position_id 取元素。
+//
+// position_id 在全文档内唯一，`//*[@position_id='N']` 这条 XPath 每次都要扫一遍整棵树，
+// 而切分阶段每个句子窗口都要查一次——页面越大，扫描次数和树的节点数一起涨，耗时按平方上升。
+// 这里用建 xpath 缓存时顺手落下的索引直查，并在返回前确认元素仍挂在当前文档上：
+// 命中就等价于那条 XPath 的结果，没命中（新建节点、索引里没有）再退回全扫描并补进索引。
+func (d *Document) FindByPositionId(positionId string) *etree.Element {
+	if positionId == "" {
+		return nil
+	}
+	if elem, ok := d.posIndex[positionId]; ok {
+		if d.isAttached(elem) && elem.SelectAttrValue(consts.KeyPositionId, "") == positionId {
+			return elem
+		}
+		delete(d.posIndex, positionId)
+	}
+	elem := d.Doc.FindElement(utils.GetPositionIdXpath(positionId))
+	if elem != nil {
+		if d.posIndex == nil {
+			d.posIndex = map[string]*etree.Element{}
+		}
+		d.posIndex[positionId] = elem
+	}
+	return elem
+}
+
+// isAttached 判断元素是否还挂在当前文档树上——被 RemovElem 摘掉的节点对象还在，
+// 但 XPath 已经查不到它，索引必须跟着这个判据走才能与 XPath 等价。
+func (d *Document) isAttached(elem *etree.Element) bool {
+	if elem == nil || d.Doc == nil {
+		return false
+	}
+	root := d.Doc.Root()
+	if root == nil {
+		return false
+	}
+	for e := elem; e != nil; e = e.Parent() {
+		if e == root {
+			return true
+		}
+	}
+	return false
+}
+
 func (d *Document) GetElemPositionId(elem *etree.Element) int64 {
 	if attr := elem.SelectAttr(consts.KeyPositionId); attr != nil {
 		atoi, err := strconv.Atoi(attr.Value)
@@ -482,6 +527,10 @@ func (d *Document) cacheXpath(node *etree.Element, rank int, path []string) {
 			path = append(path, fmt.Sprintf("%v[%v]", node.Tag, rank))
 		}
 		d.xpathCache[positionId] = fmt.Sprintf("/%v", strings.Join(path, "/"))
+		if d.posIndex == nil {
+			d.posIndex = map[string]*etree.Element{}
+		}
+		d.posIndex[positionId] = node
 	}
 
 	// 遍历子节点
