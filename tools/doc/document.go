@@ -402,7 +402,10 @@ func (d *Document) RelativeXpath(elem *etree.Element, xpath string) []*etree.Ele
 	elements := []*etree.Element{}
 	for _, elem := range elems {
 		pid := elem.SelectAttr(consts.KeyPositionId)
-		element := d.Doc.FindElement(utils.GetPositionIdXpath(pid))
+		if pid == "" {
+			continue
+		}
+		element := d.FindByPositionId(pid)
 		if element != nil {
 			elements = append(elements, element)
 		}
@@ -428,7 +431,12 @@ func (d *Document) Xpath(xpath string) []*etree.Element {
 	elements := []*etree.Element{}
 	for _, elem := range elems {
 		pid := elem.SelectAttr(consts.KeyPositionId)
-		element := d.Doc.FindElement(fmt.Sprintf("//*[@%v='%v']", consts.KeyPositionId, pid))
+		if pid == "" {
+			continue
+		}
+		// 用 position_id 索引直查，替代 `//*[@position_id='N']` 的全树扫描
+		// （每个命中节点一次全树 FindElement，节点多时接近平方级）。
+		element := d.FindByPositionId(pid)
 		if element != nil {
 			elements = append(elements, element)
 		}

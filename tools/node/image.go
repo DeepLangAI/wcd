@@ -31,12 +31,14 @@ func NewImageNode(elem *etree.Element, doc *doc.Document, sik *sentence.SegmentI
 	return n, nil
 }
 
+// bgImgURLRe 包级预编译：原来对每个带 style 的元素都 MustCompile 一次。
+var bgImgURLRe = regexp.MustCompile(`url\((.*)\)`)
+
 func (n *ImageNode) selectBgImgUrl() string {
 	if style := n.Elem.SelectAttrValue(consts.StyleAttr, ""); style != "" {
 		styleDict := utils.GetStyleMap(style)
 		bg := styleDict["background-image"]
-		re := regexp.MustCompile(`url\((.*)\)`)
-		if match := re.FindStringSubmatch(bg); len(match) > 1 {
+		if match := bgImgURLRe.FindStringSubmatch(bg); len(match) > 1 {
 			return match[1]
 		}
 	}

@@ -290,23 +290,44 @@ func (c *Cleanner) CleanEmptyTag() error {
 	return nil
 }
 func (c *Cleanner) CleanTinyNoise() error {
+	// 原实现是「每条规则发一次 //*[contains(text(), '…')]」：TINY_NOISE_RULES 现
+	// 有 200 条，等于每篇文章做 200 次全树 XPath（每次还要经 xmlquery 重建导航器）。
+	// 这里改成先遍历一次收集「元素 → 首个文本节点」，再按原规则顺序做子串匹配，
+	// 命中的元素才去算全文长度。规则顺序与删除时机保持与原实现一致。
+	type candidate struct {
+		elem  *etree.Element
+		first string
+	}
+	cands := make([]candidate, 0, 1024)
+	c.CleaningDoc.Traverse(c.CleaningDoc.Doc.Root(), &doc.TraverseParams{
+		ElementFunc: func(elem *etree.Element) {
+			if text := elem.Text(); text != "" {
+				cands = append(cands, candidate{elem: elem, first: text})
+			}
+		},
+	})
 	for _, rule := range consts.TINY_NOISE_RULES {
-		text, length := rule.Text, rule.Length
-		c.CleaningDoc.XpathIter(fmt.Sprintf("//*[contains(text(), '%v')]", text), func(elem *etree.Element) {
+		for i := range cands {
+			elem := cands[i].elem
+			if elem.Parent() == nil { // 已被前一条规则摘掉
+				continue
+			}
+			if len(cands[i].first) < len(rule.Text) || !strings.Contains(cands[i].first, rule.Text) {
+				continue
+			}
 			textContent := c.CleaningDoc.GetRawDocText(elem)
-			if utf8.RuneCountInString(textContent) > length {
-				return
+			if utf8.RuneCountInString(textContent) > rule.Length {
+				continue
 			}
 			hlog.CtxInfof(c.ctx, "remove tiny noise: %v, match: %v, text: %v", c.CleaningDoc.GetElemPositionId(elem), rule.Text, textContent)
-			err := c.CleaningDoc.RemovElem(elem)
-			if err != nil {
+			if err := c.CleaningDoc.RemovElem(elem); err != nil {
 				hlog.CtxErrorf(c.ctx, "remove tiny noise elem err: %v", err)
-				return
 			}
-		})
+		}
 	}
 	return nil
 }
+
 func (c *Cleanner) removePotentialNoiseIsSafe(elem *etree.Element, bodyText string) bool {
 	if bodyText == "" {
 		bodyText = c.CleaningDoc.GetRawDocText(c.CleaningDoc.Doc.Root())
